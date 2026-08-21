@@ -65,7 +65,7 @@ if api_key:
                     processed_img = enhancer.enhance(color_val)
 
                     # 2. Phân tích báo cáo bằng AI Gemini
-                    model = genai.GenerativeModel('gemini-2.5-flash')
+                    model = genai.GenerativeModel('gemini-3.6-flash')
                     prompt = f"""
                     Hãy đóng vai chuyên gia chỉnh sửa ảnh Studio. Hãy đánh giá bức ảnh này và liệt kê 5 điểm đã được cải thiện (Màu sắc, Ánh sáng, Độ sắc nét, Khử nhiễu, Bố cục) theo phong cách {style_option} và thể loại {type_option}. Trả lời bằng tiếng Việt ngắn gọn, chuyên nghiệp.
                     """
