@@ -37,7 +37,7 @@ if uploaded_file is not None:
             with st.spinner("Đang tạo ảnh chất lượng Studio..."):
                 try:
                     # 1. Dùng Gemini để phân tích báo cáo
-                    model = genai.GenerativeModel('gemini-2.5-flash')
+                    model = genai.GenerativeModel('gemini-3.6-flash')
                     response = model.generate_content(["Viết báo cáo cải thiện ảnh studio ngắn gọn bằng tiếng Việt", image])
                     
                     # 2. Dùng Replicate để tạo ảnh mới thật
