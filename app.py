@@ -63,7 +63,7 @@ if api_key:
 
                 try:
                     # Sử dụng mô hình xử lý đa phương thức
-                    model = genai.GenerativeModel('gemini-1.5-flash')
+                    model = genai.GenerativeModel('gemini-2.5-flash')
                     response = model.generate_content([master_prompt, image])
 
                     with col2:
