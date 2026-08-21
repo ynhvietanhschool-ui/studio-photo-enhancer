@@ -1,85 +1,70 @@
 import streamlit as st
 import google.generativeai as genai
-from PIL import Image, ImageEnhance, ImageFilter
+from PIL import Image
+import numpy as np
+import cv2
 import os
 import io
 
 st.set_page_config(page_title="Studio AI Photo Enhancer", layout="wide")
-st.title("📸 AI Studio Photo Enhancer (HD Quality)")
+st.title("📸 AI Studio Photo Enhancer (Mịn da & Tự nhiên)")
 
 api_key = st.secrets.get("GEMINI_API_KEY") if "GEMINI_API_KEY" in st.secrets else os.getenv("GEMINI_API_KEY")
 
 if api_key:
     genai.configure(api_key=api_key)
 
-    st.sidebar.header("⚙️ Thiết lập tùy chọn Studio")
-    style_option = st.sidebar.selectbox("Phong cách:", ["Tự nhiên", "Điện ảnh", "Rực rỡ"])
-    type_option = st.sidebar.selectbox("Thể loại:", ["Chân dung", "Sản phẩm", "Tối giản"])
-    
-    # Thêm tùy chọn phóng to chất lượng cao
-    upscale_factor = st.sidebar.select_slider("Tăng độ phân giải (Upscale):", options=[1, 2, 4], value=2)
+    st.sidebar.header("⚙️ Chỉnh sửa Studio Tự Nhiên")
+    smooth_val = st.sidebar.slider("Độ mịn da (Lọc nhiễu)", 1, 9, 5)
+    brightness_val = st.sidebar.slider("Độ sáng", -30, 30, 5)
+    contrast_val = st.sidebar.slider("Độ tương phản", 0.8, 1.4, 1.05)
 
     uploaded_file = st.file_uploader("Tải ảnh cần nâng cấp lên:", type=["jpg", "jpeg", "png"])
 
     if uploaded_file is not None:
         col1, col2 = st.columns(2)
-        
-        # Đọc ảnh gốc giữ nguyên chuẩn kích thước
         orig_image = Image.open(uploaded_file).convert("RGB")
         
         with col1:
             st.subheader("🖼️ Ảnh gốc")
             st.image(orig_image, use_container_width=True)
-            st.caption(f"Kích thước gốc: {orig_image.width} x {orig_image.height} px")
 
-        if st.button("🚀 Nâng cấp HD & Xuất ảnh Studio"):
-            with st.spinner("Đang tối ưu hóa độ phân giải và màu sắc..."):
+        if st.button("🚀 Nâng cấp Studio Dịu Nhẹ"):
+            with st.spinner("Đang làm mịn da và cân bằng ánh sáng..."):
                 try:
-                    processed_img = orig_image.copy()
+                    # Chuyển ảnh sang dạng mảng OpenCV
+                    img_np = np.array(orig_image)
+                    img_bgr = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
 
-                    # 1. Phóng to kích thước ảnh (Upscale) không làm mờ nét
-                    if upscale_factor > 1:
-                        new_size = (processed_img.width * upscale_factor, processed_img.height * upscale_factor)
-                        processed_img = processed_img.resize(new_size, Image.Resampling.LANCZOS)
+                    # 1. Thuật toán Bilateral Filter: Làm mịn da nhưng giữ lại đường nét mắt/mũi/miệng
+                    d = smooth_val * 2 + 1
+                    smoothed = cv2.bilateralFilter(img_bgr, d, 75, 75)
 
-                    # 2. Thuật toán làm nét và tối ưu chi tiết (Sharpen Filter)
-                    processed_img = processed_img.filter(ImageFilter.UnsharpMask(radius=2, percent=150, threshold=3))
+                    # 2. Điều chỉnh độ sáng & tương phản mềm mại
+                    adjusted = cv2.convertScaleAbs(smoothed, alpha=contrast_val, beta=brightness_val)
 
-                    # 3. Cân bằng màu sắc & Tương phản Studio
-                    enhancer_contrast = ImageEnhance.Contrast(processed_img)
-                    processed_img = enhancer_contrast.enhance(1.25)
+                    # 3. Trộn nhẹ ảnh gốc và ảnh làm mịn để giữ độ chân thật (Blend 70% mịn + 30% gốc)
+                    final_bgr = cv2.addWeighted(adjusted, 0.7, img_bgr, 0.3, 0)
 
-                    enhancer_color = ImageEnhance.Color(processed_img)
-                    processed_img = enhancer_color.enhance(1.15)
+                    # Chuyển lại về dạng PIL Image
+                    final_rgb = cv2.cvtColor(final_bgr, cv2.COLOR_BGR2RGB)
+                    processed_img = Image.fromarray(final_rgb)
 
-                    enhancer_bright = ImageEnhance.Brightness(processed_img)
-                    processed_img = enhancer_bright.enhance(1.05)
-
-                    # 4. Phân tích báo cáo AI
-                    model = genai.GenerativeModel('gemini-3.6-flash')
-                    prompt = f"Phân tích ảnh chân dung này và viết báo cáo nâng cấp studio ngắn gọn (Phong cách {style_option}) bằng tiếng Việt."
-                    response = model.generate_content([prompt, orig_image])
-
-                    # 5. Xuất file JPEG chất lượng tối đa (Quality 100, không nén)
+                    # Xuất file JPEG chất lượng
                     buf = io.BytesIO()
-                    processed_img.save(buf, format="JPEG", quality=100, subsampling=0)
+                    processed_img.save(buf, format="JPEG", quality=98)
                     byte_im = buf.getvalue()
 
                     with col2:
-                        st.subheader("✨ Ảnh Studio HD")
+                        st.subheader("✨ Ảnh Studio đã tối ưu")
                         st.image(processed_img, use_container_width=True)
-                        st.caption(f"Kích thước xuất: {processed_img.width} x {processed_img.height} px")
                         
                         st.download_button(
-                            label="📥 Tải ảnh HD sắc nét về máy",
+                            label="📥 Tải ảnh Studio về máy",
                             data=byte_im,
-                            file_name="studio_enhanced_hd.jpg",
+                            file_name="studio_enhanced_clean.jpg",
                             mime="image/jpeg"
                         )
-                        
-                        st.markdown("---")
-                        st.write("📋 **Báo cáo tối ưu từ AI:**")
-                        st.write(response.text)
 
                 except Exception as e:
                     st.error(f"Có lỗi xảy ra: {e}")
